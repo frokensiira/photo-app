@@ -4,17 +4,22 @@
 
  const express = require('express');
 const router = express.Router();
-const { index, show, store, update, destroy } = require('./../controllers/album_controller');
-const { createRules} = require('../validation_rules/albums');
+const { index, show, store, update, destroy, storePhotos } = require('./../controllers/album_controller');
+const { createRules, storePhotosRules} = require('../validation_rules/albums');
 
-/* Get all resources */
+/* Get all albums */
 router.get('/', index);
 
-/* Get a specific resource */
+/* Get a specific album */
 router.get('/:albumId', show);
 
-/* Store a new resource */
+/* Store photos on a specific album */
+router.post('/:albumId/photos', storePhotosRules, storePhotos);
+
+/* Store a new album */
 router.post('/', createRules, store);
+
+
 
 /* Update a specific resource */
 router.put('/:albumId', update);

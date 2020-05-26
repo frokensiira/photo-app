@@ -78,6 +78,63 @@ const store = async (req, res) => {
 }
 
 /**
+ * Store a new album
+ *
+ * POST /
+ */
+const storePhotos = (req, res) => {
+	const errors = validationResult(req);
+	if(!errors.isEmpty()){
+		console.log('Create photo request failed validation', errors.array());
+		res.status(422).send({
+			status: 'fail',
+			data: errors.array()
+		});
+		return;
+	}
+
+	const validData = matchedData(req);
+
+	console.log('album id is', req.params.albumId);
+	const album_id = Number(req.params.albumId);
+	console.log(typeof album_id);
+
+	
+
+	// Make sure there are no duplicates of photo id:s
+	const uniquePhotos = [...new Set(validData.photo_ids)];
+
+	const data = uniquePhotos.map(photo_id => {
+		return {
+			album_id,
+			photo_id
+		}
+	});
+
+	try{
+
+		data.forEach(async photo => {
+			const album = await models.Albums_Photos.forge(photo).save();
+
+		});
+
+		res.send({
+			status: 'success',
+			data: {
+				data,
+			}
+		});
+		
+	} catch (error) {
+		res.status(500).send({
+			status: error,
+			message: 'Error when storing photos in this album',
+		})
+		throw error;
+	}
+}
+
+/**
  * Update a specific album
  *
  * POST /:albumId
@@ -105,6 +162,7 @@ module.exports = {
 	index,
 	show,
 	store,
+	storePhotos,
 	update,
 	destroy,
 }

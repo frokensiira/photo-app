@@ -16,6 +16,9 @@ const createRules = [
     body('user_id').isNumeric(),
 ];
 
+const storePhotosRules = [
+    body('photo_ids').isArray()
+];
 /* const updateRules = [
     body('password').optional().isLength({ min: 3}),
     body('first_name').optional().isLength({ min: 2}),
@@ -24,5 +27,6 @@ const createRules = [
 
 module.exports = {
     createRules,
+    storePhotosRules,
     //updateRules,
 }
