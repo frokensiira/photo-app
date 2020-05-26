@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { index, show, store, update, destroy } = require('../controllers/photo_controller');
+const { createRules } = require('../validation_rules/photos');
 
 /* Get all photos */
 router.get('/', index);
@@ -13,7 +14,7 @@ router.get('/', index);
 router.get('/:photoId', show);
 
 /* Store a new photo */
-//router.post('/', store);
+router.post('/', createRules, store);
 
 /* Update a specific photo */
 //router.put('/:photoId', update);

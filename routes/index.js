@@ -8,6 +8,6 @@ router.get('/', (req, res) => {
 
 router.use('/photos', require('./photos'));
 router.use('/albums', require('./albums'));
-//router.use('/users', require('./routes/users'));
+router.use('/register', require('./users'));
 
 module.exports = router;

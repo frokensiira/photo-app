@@ -4,9 +4,10 @@
 
 
 const models = require('../models');
+const { validationResult, matchedData } = require('express-validator');
 
 /**
- * Get all resources
+ * Get all photos
  *
  * GET /
  */
@@ -22,13 +23,13 @@ const index = async (req, res) => {
 }
 
 /**
- * Get a specific resource
+ * Get a specific photo
  *
  * GET /:photoId
  */
 const show = async (req, res) => {
 
-	const photo = await new models.Photo({ id: req.params.photoId }).fetch();
+	const photo = await new models.Photo({ id: req.params.photoId }).fetch({ withRelated: 'album'});
 
 	res.send({
 		status: 'success',
@@ -39,19 +40,45 @@ const show = async (req, res) => {
 }
 
 /**
- * Store a new resource
+ * Store a new photo
  *
  * POST /
  */
-const store = (req, res) => {
-/* 	res.status(405).send({
-		status: 'fail',
-		message: 'Method Not Allowed.',
-	}); */
+const store = async (req, res) => {
+	const errors = validationResult(req);
+	if(!errors.isEmpty()){
+		console.log('Create photo request failed validation', errors.array());
+		res.status(422).send({
+			status: 'fail',
+			data: errors.array()
+		});
+		return;
+	}
+
+	const validData = matchedData(req);
+
+	console.log('validData is', validData);
+
+	try{
+		const photo = await models.Photo.forge(validData).save();
+
+		res.send({
+			status: 'success',
+			data: {
+				photo,
+			}
+		});
+	} catch (error) {
+		res.status(500).send({
+			status: error,
+			message: 'Error when creating a new photo',
+		})
+		throw error;
+	}
 }
 
 /**
- * Update a specific resource
+ * Update a specific photo
  *
  * POST /:photoId
  */
@@ -63,7 +90,7 @@ const update = (req, res) => {
 }
 
 /**
- * Destroy a specific resource
+ * Destroy a specific photo
  *
  * DELETE /:photoId
  */
