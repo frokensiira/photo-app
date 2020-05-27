@@ -112,7 +112,7 @@ const storePhotos = (req, res) => {
 	});
 
 	try{
-
+		// fix this so that the data that was sent in is sent back to the user
 		data.forEach(async photo => {
 			const album = await models.Albums_Photos.forge(photo).save();
 

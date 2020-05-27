@@ -6,7 +6,9 @@ const models = require('../models');
 const { body } = require('express-validator');
 
 const createRules = [
-    body('title').isLength({ min: 2}).custom(async value => {
+    body('title').isString().trim().isLength({ min: 2}).custom(async value => {
+
+        //check if album title already exists in database
         const album = await new models.Album({ title: value }).fetch({ require: false});
         if(album){
             return Promise.reject('Album title already exists.');
@@ -19,14 +21,8 @@ const createRules = [
 const storePhotosRules = [
     body('photo_ids').isArray()
 ];
-/* const updateRules = [
-    body('password').optional().isLength({ min: 3}),
-    body('first_name').optional().isLength({ min: 2}),
-    body('last_name').optional().isLength({ min: 2}),
-]; */
 
 module.exports = {
     createRules,
     storePhotosRules,
-    //updateRules,
 }
