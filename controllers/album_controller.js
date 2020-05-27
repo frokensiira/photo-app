@@ -82,7 +82,7 @@ const store = async (req, res) => {
  *
  * POST /
  */
-const storePhotos = (req, res) => {
+const storePhotos = async (req, res) => {
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
 		console.log('Create photo request failed validation', errors.array());
@@ -104,7 +104,7 @@ const storePhotos = (req, res) => {
 	// Make sure there are no duplicates of photo id:s
 	const uniquePhotos = [...new Set(validData.photo_ids)];
 
-	const data = uniquePhotos.map(photo_id => {
+	const photos = uniquePhotos.map(photo_id => {
 		return {
 			album_id,
 			photo_id
@@ -112,16 +112,15 @@ const storePhotos = (req, res) => {
 	});
 
 	try{
-		// fix this so that the data that was sent in is sent back to the user
-		data.forEach(async photo => {
-			const album = await models.Albums_Photos.forge(photo).save();
-
-		});
+		
+		const data = await Promise.all(photos.map(async photo => {
+			return await models.Albums_Photos.forge(photo).save();
+		}))
 
 		res.send({
 			status: 'success',
 			data: {
-				data,
+				data
 			}
 		});
 		
