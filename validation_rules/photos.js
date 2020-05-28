@@ -26,7 +26,6 @@ const createRules = [
         return Promise.reject('That is not a valid url.');
     }),
     body('comment').isString().trim().optional().isLength({ min: 2}),
-    body('user_id').isNumeric(),
 ];
 
 module.exports = {

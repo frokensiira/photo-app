@@ -15,7 +15,6 @@ const createRules = [
         }
         return Promise.resolve();
     }),
-    body('user_id').isNumeric(),
 ];
 
 const storePhotosRules = [

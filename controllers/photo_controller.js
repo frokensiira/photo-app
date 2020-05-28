@@ -92,6 +92,15 @@ const show = async (req, res) => {
  * POST /
  */
 const store = async (req, res) => {
+
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
+
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
 		console.log('Create photo request failed validation', errors.array());
@@ -105,6 +114,8 @@ const store = async (req, res) => {
 	const validData = matchedData(req);
 
 	console.log('validData is', validData);
+
+	validData.user_id = req.user.id;
 
 	try{
 		const photo = await models.Photo.forge(validData).save();

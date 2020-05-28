@@ -91,6 +91,17 @@ const show = async (req, res) => {
  * POST /
  */
 const store = async (req, res) => {
+
+	//ny kod
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
+
+	// gammal kod
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
 		console.log('Create album request failed validation', errors.array());
@@ -104,6 +115,8 @@ const store = async (req, res) => {
 	const validData = matchedData(req);
 
 	console.log('validData is', validData);
+
+	validData.user_id = req.user.id;
 
 	try{
 		const album = await models.Album.forge(validData).save();
@@ -124,7 +137,7 @@ const store = async (req, res) => {
 }
 
 /**
- * Store a new album
+ * Store photos in a specific album
  *
  * POST /
  */
