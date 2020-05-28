@@ -12,14 +12,25 @@ const { validationResult, matchedData } = require('express-validator');
  * GET /
  */
 const index = async (req, res) => {
-	const all_albums = await models.Album.fetchAll();
+
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
+
+	await req.user.load('albums')
+	const albums = req.user.related('albums');
 
 	res.send({
 		status: 'success',
 		data: {
-			albums: all_albums
+			albums
 		}
 	});
+
 }
 
 /**
@@ -29,14 +40,49 @@ const index = async (req, res) => {
  */
 const show = async (req, res) => {
 
-	const album = await new models.Album({ id: req.params.albumId }).fetch({ withRelated: 'photos'});
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
 
-	res.send({
-		status: 'success',
-		data: {
-			album,
-		}
+	await req.user.load('albums')
+	const albums = req.user.related('albums');
+	const albumId = Number(req.params.albumId);
+	const albumArray = albums.models;
+
+	const arrayId = albumArray.map( album => {
+		return album.id;
 	});
+
+	try {
+		const foundAlbum  = arrayId.find(id => {
+			return albumId === id;
+		});
+	
+		if(!foundAlbum){
+			return res.status(401).send({
+				status: 'fail',
+				data: "You don't have access to this album",
+			});
+		}
+	
+		const album = await new models.Album({ id: foundAlbum }).fetch();
+		res.send({
+			status: 'success',
+			data: {
+				album
+			}
+		});
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested album",
+		});
+	}
 }
 
 /**
@@ -47,7 +93,7 @@ const show = async (req, res) => {
 const store = async (req, res) => {
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
-		console.log('Create photo request failed validation', errors.array());
+		console.log('Create album request failed validation', errors.array());
 		res.status(422).send({
 			status: 'fail',
 			data: errors.array()

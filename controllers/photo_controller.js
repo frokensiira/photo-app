@@ -59,7 +59,7 @@ const show = async (req, res) => {
 
 	try {
 		const foundPhoto  = arrayId.find(id => {
-				return photoId === id;
+			return photoId === id;
 		});
 	
 		if(!foundPhoto){
