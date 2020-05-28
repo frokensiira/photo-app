@@ -30,12 +30,12 @@ const basic = async (req, res, next) => {
     // Split email and password
     const [ email, password ] = decodedPassword.split(':');
 
-    // Check if db has a matching user with the same email and password
-    const user = await new User({ email, password }).fetch({ require: false });
+    const user = await User.login(email, password);
+
     if(!user){
-        res.status(403).send({
+        res.status(401).send({
             status: 'fail',
-            data: 'Access denied, authorization failed',
+            data: 'Authorization failed',
         });
         return;
     }

@@ -2,7 +2,7 @@
  * Photo Controller
  */
 
-
+const bcrypt = require('bcrypt');
 const models = require('../models');
 const { validationResult, matchedData } = require('express-validator');
 
@@ -12,14 +12,25 @@ const { validationResult, matchedData } = require('express-validator');
  * GET /
  */
 const index = async (req, res) => {
-	const all_photos = await models.Photo.fetchAll();
+
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
+
+	await req.user.load('photos')
+	const photos = req.user.related('photos');
 
 	res.send({
 		status: 'success',
 		data: {
-			photos: all_photos
+			photos
 		}
 	});
+
 }
 
 /**
@@ -29,14 +40,50 @@ const index = async (req, res) => {
  */
 const show = async (req, res) => {
 
-	const photo = await new models.Photo({ id: req.params.photoId }).fetch({ withRelated: 'album'});
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
 
-	res.send({
-		status: 'success',
-		data: {
-			photo,
-		}
+	await req.user.load('photos')
+	const photos = req.user.related('photos');
+	const photoId = Number(req.params.photoId);
+	const photoArray = photos.models;
+
+	const arrayId = photoArray.map( photo => {
+		return photo.id;
 	});
+
+	try {
+		const foundPhoto  = arrayId.find(id => {
+				return photoId === id;
+		});
+	
+		if(!foundPhoto){
+			return res.status(401).send({
+				status: 'fail',
+				data: "You don't have access to this photo",
+			});
+		}
+	
+		const photo = await new models.Photo({ id: foundPhoto }).fetch();
+		res.send({
+			status: 'success',
+			data: {
+				photo
+			}
+		});
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photo",
+		});
+	}
+
 }
 
 /**
@@ -80,13 +127,13 @@ const store = async (req, res) => {
 /**
  * Update a specific photo
  *
- * POST /:photoId
+ * PUT /:photoId
  */
 const update = (req, res) => {
-/* 	res.status(405).send({
+	res.status(405).send({
 		status: 'fail',
 		message: 'Method Not Allowed.',
-	}); */
+	});
 }
 
 /**
@@ -95,10 +142,10 @@ const update = (req, res) => {
  * DELETE /:photoId
  */
 const destroy = (req, res) => {
-/* 	res.status(405).send({
+	res.status(405).send({
 		status: 'fail',
 		message: 'Method Not Allowed.',
-	}); */
+	});
 }
 
 module.exports = {
