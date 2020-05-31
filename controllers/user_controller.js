@@ -25,9 +25,6 @@ const store = async (req, res) => {
 
 	const validData = matchedData(req);
 
-	console.log('validData is', validData);
-
-
 	try{
 		validData.password = await bcrypt.hash(validData.password, models.User.hashSaltRounds); 
 
@@ -47,11 +44,12 @@ const store = async (req, res) => {
 				user,
 			}
 		});
+
 	} catch (error) {
 		res.status(500).send({
 			status: error,
 			message: 'Exception thrown in database when creating a new user',
-		})
+		});
 		throw error;
 	}
 	

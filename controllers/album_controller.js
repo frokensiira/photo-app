@@ -21,15 +21,25 @@ const index = async (req, res) => {
 		return;
 	}
 
-	await req.user.load('albums')
-	const albums = req.user.related('albums');
+	try {
+		// fetch the requested albums from the database
+		await req.user.load('albums')
+		const albums = req.user.related('albums');
+	
+		res.send({
+			status: 'success',
+			data: {
+				albums
+			}
+		});
 
-	res.send({
-		status: 'success',
-		data: {
-			albums
-		}
-	});
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested albums",
+		});
+		throw error;
+	}
 
 }
 
@@ -54,13 +64,16 @@ const show = async (req, res) => {
             id: req.params.albumId,
             user_id: req.user.id,
 		}).fetch({ withRelated: 'photos', require: false });
+
+		console.log('album is', album);
 		
 		//check if the user owns this album, if not bail
 		if(!album){
-			return res.status(401).send({
+			res.status(401).send({
 				status: 'fail',
 				data: "You don't have access to this album",
 			});
+			return;
 		}
 
 		// if it belongs to the user, display it
@@ -76,6 +89,7 @@ const show = async (req, res) => {
 			status: 'error',
 			message: "Error when finding the requested album",
 		});
+		throw error;
 	}
 }
 
@@ -94,9 +108,9 @@ const store = async (req, res) => {
 		return;
 	}
 
+	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
-		console.log('Create album request failed validation', errors.array());
 		res.status(422).send({
 			status: 'fail',
 			data: errors.array()
@@ -104,13 +118,14 @@ const store = async (req, res) => {
 		return;
 	}
 
+	// get the valid input data
 	const validData = matchedData(req);
 
-	console.log('validData is', validData);
-
+	// attach the user's id to the input data
 	validData.user_id = req.user.id;
 
 	try{
+		// store the album in the db
 		const album = await models.Album.forge(validData).save();
 
 		res.send({
@@ -119,6 +134,7 @@ const store = async (req, res) => {
 				album,
 			}
 		});
+
 	} catch (error) {
 		res.status(500).send({
 			status: error,
@@ -129,7 +145,7 @@ const store = async (req, res) => {
 }
 
 /**
- * Store photos in a specific album
+ * Store user's photos in a specific album
  *
  * POST /
  */
@@ -156,6 +172,7 @@ const storePhotos = async (req, res) => {
 
 	// extract the valid data
 	const validData = matchedData(req);
+
 	// Make sure there are no duplicates of photo id:s sent from the user
 	const uniquePhotos = [...new Set(validData.photo_ids)];
 
@@ -164,7 +181,7 @@ const storePhotos = async (req, res) => {
 
 	try {
 
-		// fetch the requested album from the database
+		// fetch the requested album and it's photos from the database
 		const album = await new models.Album({
             id: req.params.albumId,
             user_id: req.user.id,
@@ -176,6 +193,7 @@ const storePhotos = async (req, res) => {
 				status: 'fail',
 				data: "You don't have access to this album",
 			});
+			return;
 		}
 
 		// Make sure that any of the photos doesn't already exist in the album
@@ -185,7 +203,8 @@ const storePhotos = async (req, res) => {
 			return photo.id;
 		});
 
-		// check if any of the photos already exists in the album, if so let the user know
+		// check if any of the photos that the user is trying to store in the album already exists in the album 
+		// if so bail and let the user know which photos are duplicates
 		const duplicates = photoIds.filter(id => uniquePhotos.indexOf(id) != -1);
 
 		if(duplicates.length !== 0) {
@@ -193,6 +212,7 @@ const storePhotos = async (req, res) => {
 				status: 'fail',
 				data: `Photo with id ${duplicates} already exists in this album. Please remove those id:s and try again`,
 			});
+			return;
 		}
 
 	} catch (error) {
@@ -200,29 +220,27 @@ const storePhotos = async (req, res) => {
 			status: 'error',
 			message: "Error when finding the requested album",
 		});
+		throw error;
 	}
 
+	// Check if the owner owns the photos
 	try {
-
-		// Check if the owner owns the photos
-
 		// get all the photos that the user owns from the db
 		await req.user.load('photos')
 		const photos = req.user.related('photos');
 
 		// extract only the id:s of the photos that the user owns
-		const photoArrayDb = photos.models.map( photo => {
-			return photo.id;
-		});
+		const photoArrayDb = photos.models.map( photo => photo.id);
 
 		// check if the owners owns the photos, otherwise bail
 		const difference = uniquePhotos.filter(id => !photoArrayDb.includes(id));
 
 		if(difference.length !== 0){
-			return res.status(401).send({
+			res.status(401).send({
 				status: 'fail',
 				data: `You don't have access to photo with id: ${difference}`,
 			});
+			return;
 		}
 		
 	} catch (error) {
@@ -230,6 +248,7 @@ const storePhotos = async (req, res) => {
 			status: 'error',
 			message: "Error when finding the requested photo",
 		});
+		throw error;
 	}
 
 	// Now that we have checked that all the data is fine, send to db
@@ -246,8 +265,8 @@ const storePhotos = async (req, res) => {
 		// send each object to db 
 		const data = await Promise.all(new_photos.map(async photo => {
 			return await models.Albums_Photos.forge(photo).save();
-		}))
-		 
+		}));
+
 		res.send({
 			status: 'success',
 			data: {
@@ -298,14 +317,13 @@ const destroy = async (req, res) => {
             user_id: req.user.id,
 		}).fetch({ withRelated: 'photos', require: false });
 
-		console.log('this is album', album);
-		
 		// check if the album belongs to the user
 		if(!album){
-			return res.status(401).send({
+			res.status(401).send({
 				status: 'fail',
 				data: "You don't have access to this album",
 			});
+			return;
 		}
 
 		// Now that we know that the album belongs to the user, we can delete it
@@ -324,6 +342,7 @@ const destroy = async (req, res) => {
 			status: 'error',
 			message: "Error when finding the requested photo",
 		});
+		throw error;
 	}
 }
 

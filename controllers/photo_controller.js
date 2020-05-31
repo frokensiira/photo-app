@@ -22,15 +22,26 @@ const index = async (req, res) => {
 		return;
 	}
 
-	await req.user.load('photos')
-	const photos = req.user.related('photos');
+	try{
+		// fetch the requested photos from the database
+		await req.user.load('photos')
+		const photos = req.user.related('photos');
 
-	res.send({
-		status: 'success',
-		data: {
-			photos
-		}
-	});
+		res.send({
+			status: 'success',
+			data: {
+				photos
+			}
+		});
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photos",
+		});
+		throw error;
+	}
+	
 
 }
 
@@ -50,17 +61,19 @@ const show = async (req, res) => {
 	}
 
 	try {
-
+		// fetch the requested photos from the database
 		const photo = await new models.Photo({
             id: req.params.photoId,
             user_id: req.user.id,
 		}).fetch({ withRelated: 'albums', require: false });
 		
+		//check if the user owns this photo, if not bail
 		if(!photo){
-			return res.status(401).send({
+			res.status(401).send({
 				status: 'fail',
 				data: "You don't have access to this photo",
 			});
+			return;
 		}
 
 		res.send({
@@ -75,6 +88,7 @@ const show = async (req, res) => {
 			status: 'error',
 			message: "Error when finding the requested photo",
 		});
+		throw error;
 	}
 
 }
@@ -94,9 +108,9 @@ const store = async (req, res) => {
 		return;
 	}
 
+	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
-		console.log('Create photo request failed validation', errors.array());
 		res.status(422).send({
 			status: 'fail',
 			data: errors.array()
@@ -104,11 +118,14 @@ const store = async (req, res) => {
 		return;
 	}
 
+	// get the valid input data
 	const validData = matchedData(req);
 
+	// attach the user's id to the input data
 	validData.user_id = req.user.id;
 
 	try{
+		// store the photo in the db
 		const photo = await models.Photo.forge(validData).save();
 
 		res.send({
@@ -117,6 +134,7 @@ const store = async (req, res) => {
 				photo,
 			}
 		});
+
 	} catch (error) {
 		res.status(500).send({
 			status: error,
@@ -159,8 +177,6 @@ const destroy = async ( req, res) => {
             id: req.params.photoId,
             user_id: req.user.id,
 		}).fetch({ withRelated: 'albums', require: false });
-
-		console.log('this is photo', photo);
 		
 		// check if the photo belongs to the user
 		if(!photo){
@@ -186,6 +202,7 @@ const destroy = async ( req, res) => {
 			status: 'error',
 			message: "Error when finding the requested photo",
 		});
+		throw error;
 	}
 
 }
