@@ -169,12 +169,29 @@ const storePhotos = async (req, res) => {
             id: req.params.albumId,
             user_id: req.user.id,
 		}).fetch({ withRelated: 'photos', require: false });
-		
+
 		// check if the user owns this album, if not bail
 		if(!album){
-			return res.status(401).send({
+			res.status(401).send({
 				status: 'fail',
 				data: "You don't have access to this album",
+			});
+		}
+
+		// Make sure that any of the photos doesn't already exist in the album
+
+		// extract the photo ids from the album
+		const photoIds = album.relations.photos.models.map(photo => {
+			return photo.id;
+		});
+
+		// check if any of the photos already exists in the album, if so let the user know
+		const duplicates = photoIds.filter(id => uniquePhotos.indexOf(id) != -1);
+
+		if(duplicates.length !== 0) {
+			res.status(409).send({
+				status: 'fail',
+				data: `Photo with id ${duplicates} already exists in this album. Please remove those id:s and try again`,
 			});
 		}
 
@@ -198,6 +215,7 @@ const storePhotos = async (req, res) => {
 			return photo.id;
 		});
 
+		// check if the owners owns the photos, otherwise bail
 		const difference = uniquePhotos.filter(id => !photoArrayDb.includes(id));
 
 		if(difference.length !== 0){
@@ -214,27 +232,6 @@ const storePhotos = async (req, res) => {
 		});
 	}
 
-	// check that the photos doesn't exist in the album already. Work in progress.
-/* 	try {
-		const albumsWithPhotos = await new models.Album({ id: album_id }).fetch({ withRelated: 'photos' });
-
-		console.log('this is albumsWithPhotos.photos', albumsWithPhotos.photos[0]);
-
-		res.send({
-			status: 'success',
-			data: {
-				data: albumsWithPhotos,
-			}
-		});
-
-		return;
-	} catch (error) {
-		res.status(500).send({
-			status: 'error',
-			message: "Error when trying to save photos in an album",
-		});
-	} */
-
 	// Now that we have checked that all the data is fine, send to db
 	try{
 
@@ -250,7 +247,7 @@ const storePhotos = async (req, res) => {
 		const data = await Promise.all(new_photos.map(async photo => {
 			return await models.Albums_Photos.forge(photo).save();
 		}))
-
+		 
 		res.send({
 			status: 'success',
 			data: {
