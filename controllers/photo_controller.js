@@ -5,6 +5,7 @@
 const bcrypt = require('bcrypt');
 const models = require('../models');
 const { validationResult, matchedData } = require('express-validator');
+const knex = require('../models/index')
 
 /**
  * Get all photos
@@ -48,28 +49,20 @@ const show = async (req, res) => {
 		return;
 	}
 
-	await req.user.load('photos')
-	const photos = req.user.related('photos');
-	const photoId = Number(req.params.photoId);
-	const photoArray = photos.models;
-
-	const arrayId = photoArray.map( photo => {
-		return photo.id;
-	});
-
 	try {
-		const foundPhoto  = arrayId.find(id => {
-			return photoId === id;
-		});
-	
-		if(!foundPhoto){
+
+		const photo = await new models.Photo({
+            id: req.params.photoId,
+            user_id: req.user.id,
+		}).fetch({ withRelated: 'albums', require: false });
+		
+		if(!photo){
 			return res.status(401).send({
 				status: 'fail',
 				data: "You don't have access to this photo",
 			});
 		}
-	
-		const photo = await new models.Photo({ id: foundPhoto }).fetch();
+
 		res.send({
 			status: 'success',
 			data: {
@@ -113,8 +106,6 @@ const store = async (req, res) => {
 
 	const validData = matchedData(req);
 
-	console.log('validData is', validData);
-
 	validData.user_id = req.user.id;
 
 	try{
@@ -143,7 +134,7 @@ const store = async (req, res) => {
 const update = (req, res) => {
 	res.status(405).send({
 		status: 'fail',
-		message: 'Method Not Allowed.',
+		data: 'Updating a photo is not yet implemented.',
 	});
 }
 
@@ -152,11 +143,51 @@ const update = (req, res) => {
  *
  * DELETE /:photoId
  */
-const destroy = (req, res) => {
-	res.status(405).send({
-		status: 'fail',
-		message: 'Method Not Allowed.',
-	});
+const destroy = async ( req, res) => {
+
+	if (!req.user) {
+		res.status(401).send({
+			status: 'fail',
+			data: 'Authentication Required.',
+		});
+		return;
+	}
+
+	try {
+		// get the photo from the db
+		const photo = await new models.Photo({
+            id: req.params.photoId,
+            user_id: req.user.id,
+		}).fetch({ withRelated: 'albums', require: false });
+
+		console.log('this is photo', photo);
+		
+		// check if the photo belongs to the user
+		if(!photo){
+			return res.status(401).send({
+				status: 'fail',
+				data: "You don't have access to this photo",
+			});
+		}
+
+		// Now that we know that the photo belongs to the user, we can delete it
+
+		// delete photo from database and detach it from all albums
+		photo.destroy().then();
+		photo.albums().detach();
+
+		res.send({
+			status: 'success',
+			data: null
+		});
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photo",
+		});
+	}
+
 }
 
 module.exports = {

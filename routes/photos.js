@@ -20,6 +20,6 @@ router.post('/', createRules, store);
 //router.put('/:photoId', update);
 
 /* Destroy a specific photo */
-//router.delete('/:photoId', destroy);
+router.delete('/:photoId', destroy);
 
 module.exports = router;
