@@ -2,10 +2,52 @@
  * Photo Controller
  */
 
-const bcrypt = require('bcrypt');
-const models = require('../models');
+const { User, Photo } = require('../models');
 const { validationResult, matchedData } = require('express-validator');
-const knex = require('../models/index')
+
+// Validate that the photo exists and that it belongs to the user
+const validatePhoto = async (id, user_id, res) => {
+
+	try {
+		// fetch the requested photo from the database
+		const photo = await Photo.fetchPhotoId(id, {require: false});
+
+		//check if it exists, if not bail
+		if(!photo){
+			res.status(404).send({
+				status: 'fail',
+				data: "The requested photo does not exist",
+			});
+			return;
+		}
+
+		// fetch the requested photo from the user's database
+		const photoUser = await new Photo({
+			id,
+			user_id
+		}).fetch({ withRelated: 'albums', require: false});
+
+		//check if the user owns this photo, if not bail
+		if(!photoUser){
+			res.status(401).send({
+				status: 'fail',
+				data: "You don't have access to this photo",
+			});
+			return;
+		}
+
+		return photoUser;
+
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photos",
+		});
+		throw error;
+	}
+	
+}
 
 /**
  * Get all photos
@@ -14,18 +56,10 @@ const knex = require('../models/index')
  */
 const index = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	try{
 		// fetch the requested photos from the database
-		await req.user.load('photos')
-		const photos = req.user.related('photos');
+		const user = await User.fetchUserId(req.user.sub, { withRelated: 'photos'});
+		const photos = user.related('photos');
 
 		res.send({
 			status: 'success',
@@ -51,31 +85,14 @@ const index = async (req, res) => {
  * GET /:photoId
  */
 const show = async (req, res) => {
-
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
+	
 	try {
-		// fetch the requested photos from the database
-		const photo = await new models.Photo({
-            id: req.params.photoId,
-            user_id: req.user.id,
-		}).fetch({ withRelated: 'albums', require: false });
-		
-		//check if the user owns this photo, if not bail
-		if(!photo){
-			res.status(401).send({
-				status: 'fail',
-				data: "You don't have access to this photo",
-			});
-			return;
-		}
+		// Validate that everything is fine with the photo that the user wants to get
+		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
 
+		if(!photo) {return;};
+
+		// if it belongs to the user, display it
 		res.send({
 			status: 'success',
 			data: {
@@ -100,14 +117,6 @@ const show = async (req, res) => {
  */
 const store = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
@@ -122,11 +131,11 @@ const store = async (req, res) => {
 	const validData = matchedData(req);
 
 	// attach the user's id to the input data
-	validData.user_id = req.user.id;
+	validData.user_id = req.user.sub;
 
 	try{
 		// store the photo in the db
-		const photo = await models.Photo.forge(validData).save();
+		const photo = await Photo.forge(validData).save();
 
 		res.send({
 			status: 'success',
@@ -163,31 +172,12 @@ const update = (req, res) => {
  */
 const destroy = async ( req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	try {
-		// get the photo from the db
-		const photo = await new models.Photo({
-            id: req.params.photoId,
-            user_id: req.user.id,
-		}).fetch({ withRelated: 'albums', require: false });
-		
-		// check if the photo belongs to the user
-		if(!photo){
-			return res.status(401).send({
-				status: 'fail',
-				data: "You don't have access to this photo",
-			});
-		}
+		// validate that everything is fine with the photo the user is trying to delete
+		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
+		if(!photo) {return;}
 
 		// Now that we know that the photo belongs to the user, we can delete it
-
 		// delete photo from database and detach it from all albums
 		photo.destroy().then();
 		photo.albums().detach();

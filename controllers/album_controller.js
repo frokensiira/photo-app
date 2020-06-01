@@ -3,8 +3,52 @@
  */
 
 
-const models = require('../models');
+const { User, Album, Albums_Photos } = require('../models');
 const { validationResult, matchedData } = require('express-validator');
+
+// Validate that the photo exists and that it belongs to the user
+const validateAlbum = async (id, user_id, res) => {
+
+	try {
+		// fetch the requested album from the database
+		const album = await Album.fetchAlbumId(id, {require: false });
+
+		//check if it exists, if not bail
+		if(!album){
+			res.status(404).send({
+				status: 'fail',
+				data: "The requested album does not exist",
+			});
+			return;
+		}
+		
+		// fetch the requested album from the user's database
+		const albumUser = await new Album({
+            id,
+            user_id,
+		}).fetch({ withRelated: 'photos', require: false });
+		
+		//check if the user owns this album, if not bail
+		if(!albumUser){
+			res.status(401).send({
+				status: 'fail',
+				data: "You don't have access to this album",
+			});
+			return;
+		}
+
+		return albumUser;
+
+
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photos",
+		});
+		throw error;
+	}
+	
+}
 
 /**
  * Get all albums
@@ -13,18 +57,10 @@ const { validationResult, matchedData } = require('express-validator');
  */
 const index = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	try {
 		// fetch the requested albums from the database
-		await req.user.load('albums')
-		const albums = req.user.related('albums');
+		const user = await User.fetchUserId(req.user.sub, { withRelated: 'albums'});
+		const albums = user.related('albums');
 	
 		res.send({
 			status: 'success',
@@ -50,31 +86,11 @@ const index = async (req, res) => {
  */
 const show = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	try {
-		// fetch the requested album from the database
-		const album = await new models.Album({
-            id: req.params.albumId,
-            user_id: req.user.id,
-		}).fetch({ withRelated: 'photos', require: false });
+		// Validate that everything is fine with the album that the user wants to get
+		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
 
-		console.log('album is', album);
-		
-		//check if the user owns this album, if not bail
-		if(!album){
-			res.status(401).send({
-				status: 'fail',
-				data: "You don't have access to this album",
-			});
-			return;
-		}
+		if(!album) {return;};
 
 		// if it belongs to the user, display it
 		res.send({
@@ -100,14 +116,6 @@ const show = async (req, res) => {
  */
 const store = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
@@ -122,11 +130,11 @@ const store = async (req, res) => {
 	const validData = matchedData(req);
 
 	// attach the user's id to the input data
-	validData.user_id = req.user.id;
+	validData.user_id = req.user.sub;
 
 	try{
 		// store the album in the db
-		const album = await models.Album.forge(validData).save();
+		const album = await Album.forge(validData).save();
 
 		res.send({
 			status: 'success',
@@ -151,15 +159,6 @@ const store = async (req, res) => {
  */
 const storePhotos = async (req, res) => {
 
-	//check if user is logged in
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
@@ -180,21 +179,10 @@ const storePhotos = async (req, res) => {
 	const album_id = Number(req.params.albumId);
 
 	try {
+		// validate that everything is fine with the album that the user wants to add photos to
+		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
 
-		// fetch the requested album and it's photos from the database
-		const album = await new models.Album({
-            id: req.params.albumId,
-            user_id: req.user.id,
-		}).fetch({ withRelated: 'photos', require: false });
-
-		// check if the user owns this album, if not bail
-		if(!album){
-			res.status(401).send({
-				status: 'fail',
-				data: "You don't have access to this album",
-			});
-			return;
-		}
+		if(!album) {return;};
 
 		// Make sure that any of the photos doesn't already exist in the album
 
@@ -223,11 +211,10 @@ const storePhotos = async (req, res) => {
 		throw error;
 	}
 
-	// Check if the owner owns the photos
 	try {
 		// get all the photos that the user owns from the db
-		await req.user.load('photos')
-		const photos = req.user.related('photos');
+		const user = await User.fetchUserId(req.user.sub, { withRelated: 'photos'});
+		const photos = user.related('photos');
 
 		// extract only the id:s of the photos that the user owns
 		const photoArrayDb = photos.models.map( photo => photo.id);
@@ -264,7 +251,7 @@ const storePhotos = async (req, res) => {
 	
 		// send each object to db 
 		const data = await Promise.all(new_photos.map(async photo => {
-			return await models.Albums_Photos.forge(photo).save();
+			return await Albums_Photos.forge(photo).save();
 		}));
 
 		res.send({
@@ -281,6 +268,7 @@ const storePhotos = async (req, res) => {
 		})
 		throw error;
 	}
+
 }
 
 /**
@@ -302,29 +290,11 @@ const update = (req, res) => {
  */
 const destroy = async (req, res) => {
 
-	if (!req.user) {
-		res.status(401).send({
-			status: 'fail',
-			data: 'Authentication Required.',
-		});
-		return;
-	}
-
 	try {
-		// get the album from the db
-		const album = await new models.Album({
-            id: req.params.albumId,
-            user_id: req.user.id,
-		}).fetch({ withRelated: 'photos', require: false });
+		// Validate that everything is fine with the album that the user is trying to delete
+		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
 
-		// check if the album belongs to the user
-		if(!album){
-			res.status(401).send({
-				status: 'fail',
-				data: "You don't have access to this album",
-			});
-			return;
-		}
+		if(!album) {return;};
 
 		// Now that we know that the album belongs to the user, we can delete it
 

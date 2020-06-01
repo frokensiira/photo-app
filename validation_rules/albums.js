@@ -11,7 +11,7 @@ const createRules = [
         //check if album title already exists in database
         const album = await new models.Album({ title: value }).fetch({ require: false});
         if(album){
-            return Promise.reject('Album title already exists.');
+            return Promise.reject('Album title already exists. Please choose another title.');
         }
         return Promise.resolve();
     }),

@@ -15,6 +15,10 @@ module.exports = (bookshelf) => {
     }, {
         hashSaltRounds: 10,
 
+        fetchUserId(id, fetchOptions = {}) {
+            return new this({ id }).fetch(fetchOptions);
+        },
+
         async login (email, password){
 
             // check if email already exists in db
