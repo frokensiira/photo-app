@@ -2,10 +2,10 @@
  * Album Routes
  */
 
- const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { index, show, store, update, destroy, storePhotos } = require('./../controllers/album_controller');
-const { createRules, storePhotosRules} = require('../validation_rules/albums');
+const { createRules, storePhotosRules} = require('../validation_rules/album');
 
 /* Get all albums */
 router.get('/', index);
@@ -19,12 +19,10 @@ router.post('/:albumId/photos', storePhotosRules, storePhotos);
 /* Store a new album */
 router.post('/', createRules, store);
 
-
-
-/* Update a specific resource */
+/* Update a specific album */
 router.put('/:albumId', update);
 
-/* Destroy a specific resource */
+/* Destroy a specific album */
 router.delete('/:albumId', destroy);
 
 module.exports = router;

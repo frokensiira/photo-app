@@ -2,7 +2,7 @@
  * Album Validation Rules
  */
 
-const models = require('../models');
+const { User } = require('../models');
 const { body } = require('express-validator');
 
 const createRules = [
@@ -10,7 +10,7 @@ const createRules = [
     body('email').isEmail().trim().isLength({ min: 6}).custom(async value => {
 
         //check if email already exists in database
-        const email = await new models.User({ email: value }).fetch({ require: false});
+        const email = await new User({ email: value }).fetch({ require: false});
         if(email){
             return Promise.reject('Email already exists.');
         }

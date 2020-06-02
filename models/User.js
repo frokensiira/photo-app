@@ -21,20 +21,20 @@ module.exports = (bookshelf) => {
 
         async login (email, password){
 
-            // check if email already exists in db
+            // Check if email exists in db
             const user = await new this({ email }).fetch({ require: false });
 
             if(!user){
                 return false;
             }
 
-            // get hashed password from db
+            // Get hashed password from db
             const hash = user.get('password');
 
-            //compare new hash with hash from db
+            // Compare new hash with hash from db
             const result = await bcrypt.compare(password, hash);    
 
-            // return user if hashed match, otherwise false/null
+            // If hashed match return user, otherwise return false
             return (result)
                 ? user
                 : false;

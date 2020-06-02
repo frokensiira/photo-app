@@ -6,14 +6,14 @@
 const { User, Album, Albums_Photos } = require('../models');
 const { validationResult, matchedData } = require('express-validator');
 
-// Validate that the photo exists and that it belongs to the user
+// Function to validate that the photo exists and that it belongs to the user
 const validateAlbum = async (id, user_id, res) => {
 
 	try {
 		// fetch the requested album from the database
 		const album = await Album.fetchAlbumId(id, {require: false });
 
-		//check if it exists, if not bail
+		// check if it exists, if not bail
 		if(!album){
 			res.status(404).send({
 				status: 'fail',
@@ -28,7 +28,7 @@ const validateAlbum = async (id, user_id, res) => {
             user_id,
 		}).fetch({ withRelated: 'photos', require: false });
 		
-		//check if the user owns this album, if not bail
+		// check if the user owns this album, if not bail
 		if(!albumUser){
 			res.status(401).send({
 				status: 'fail',
@@ -50,6 +50,20 @@ const validateAlbum = async (id, user_id, res) => {
 	
 }
 
+// Function to check that all data passed the validation rules
+const validateInput = (req, res) => {
+	
+	const errors = validationResult(req);
+	if(!errors.isEmpty()){
+		res.status(422).send({
+			status: 'fail',
+			data: errors.array()
+		});
+		return;
+	}
+	return;
+}
+
 /**
  * Get all albums
  *
@@ -58,7 +72,7 @@ const validateAlbum = async (id, user_id, res) => {
 const index = async (req, res) => {
 
 	try {
-		// fetch the requested albums from the database
+		// fetch all albums belonging to the user from the database
 		const user = await User.fetchUserId(req.user.sub, { withRelated: 'albums'});
 		const albums = user.related('albums');
 	
@@ -90,9 +104,7 @@ const show = async (req, res) => {
 		// Validate that everything is fine with the album that the user wants to get
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
 
-		if(!album) {return;};
-
-		// if it belongs to the user, display it
+		// if it belongs to the user, display it and all of its photos 
 		res.send({
 			status: 'success',
 			data: {
@@ -117,17 +129,29 @@ const show = async (req, res) => {
 const store = async (req, res) => {
 
 	// check that all data passed the validation rules
-	const errors = validationResult(req);
-	if(!errors.isEmpty()){
-		res.status(422).send({
-			status: 'fail',
-			data: errors.array()
-		});
-		return;
-	}
+	validateInput(req, res);
 
 	// get the valid input data
 	const validData = matchedData(req);
+
+	// check if album title already exists in user's database
+	try {
+		const album = await new Album({ title: validData.title, user_id: req.user.sub }).fetch({ require: false});
+		if(album){
+			res.status(409).send({
+				status: 'fail',
+				data: 'Album title already exists. Please choose another title.'
+			});
+			return;
+		}
+		
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested album",
+		});
+		throw error;
+	}
 
 	// attach the user's id to the input data
 	validData.user_id = req.user.sub;
@@ -160,14 +184,7 @@ const store = async (req, res) => {
 const storePhotos = async (req, res) => {
 
 	// check that all data passed the validation rules
-	const errors = validationResult(req);
-	if(!errors.isEmpty()){
-		res.status(422).send({
-			status: 'fail',
-			data: errors.array()
-		});
-		return;
-	}
+	validateInput(req, res);
 
 	// extract the valid data
 	const validData = matchedData(req);
@@ -182,14 +199,10 @@ const storePhotos = async (req, res) => {
 		// validate that everything is fine with the album that the user wants to add photos to
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
 
-		if(!album) {return;};
-
 		// Make sure that any of the photos doesn't already exist in the album
 
 		// extract the photo ids from the album
-		const photoIds = album.relations.photos.models.map(photo => {
-			return photo.id;
-		});
+		const photoIds = album.relations.photos.models.map(photo => photo.id);
 
 		// check if any of the photos that the user is trying to store in the album already exists in the album 
 		// if so bail and let the user know which photos are duplicates
@@ -211,6 +224,7 @@ const storePhotos = async (req, res) => {
 		throw error;
 	}
 
+	// Make sure the owner owns the photos 
 	try {
 		// get all the photos that the user owns from the db
 		const user = await User.fetchUserId(req.user.sub, { withRelated: 'photos'});
@@ -240,7 +254,6 @@ const storePhotos = async (req, res) => {
 
 	// Now that we have checked that all the data is fine, send to db
 	try{
-
 		// create an array of objects to send to db
 		const new_photos = uniquePhotos.map(photo_id => {
 			return {
@@ -293,8 +306,6 @@ const destroy = async (req, res) => {
 	try {
 		// Validate that everything is fine with the album that the user is trying to delete
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
-
-		if(!album) {return;};
 
 		// Now that we know that the album belongs to the user, we can delete it
 

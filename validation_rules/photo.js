@@ -2,19 +2,10 @@
  * Photo Validation Rules
  */
 
-const models = require('../models');
 const { body } = require('express-validator');
 
 const createRules = [
-    body('title').isString().trim().isLength({ min: 2}).custom(async value => {
-
-        //check if photo title already exists in database
-        const photo = await new models.Photo({ title: value }).fetch({ require: false});
-        if(photo){
-            return Promise.reject('Photo title already exists.');
-        }
-        return Promise.resolve();
-    }),
+    body('title').isString().trim().isLength({ min: 2}),
     body('url').isString().trim().isLength({ min: 7}).custom(value => {
 
         const https = value.slice(0,8);

@@ -38,7 +38,6 @@ const validatePhoto = async (id, user_id, res) => {
 
 		return photoUser;
 
-
 	} catch (error) {
 		res.status(500).send({
 			status: 'error',
@@ -57,7 +56,7 @@ const validatePhoto = async (id, user_id, res) => {
 const index = async (req, res) => {
 
 	try{
-		// fetch the requested photos from the database
+		// fetch all photos belonging to the user from the database
 		const user = await User.fetchUserId(req.user.sub, { withRelated: 'photos'});
 		const photos = user.related('photos');
 
@@ -75,7 +74,6 @@ const index = async (req, res) => {
 		});
 		throw error;
 	}
-	
 
 }
 
@@ -90,9 +88,7 @@ const show = async (req, res) => {
 		// Validate that everything is fine with the photo that the user wants to get
 		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
 
-		if(!photo) {return;};
-
-		// if it belongs to the user, display it
+		// if it belongs to the user, display it and its related albums
 		res.send({
 			status: 'success',
 			data: {
@@ -129,6 +125,25 @@ const store = async (req, res) => {
 
 	// get the valid input data
 	const validData = matchedData(req);
+
+	// check if photo title already exists in user's database
+	try {
+		const photo = await new Photo({ title: validData.title, user_id: req.user.sub }).fetch({ require: false});
+		if(photo){
+			res.status(409).send({
+				status: 'fail',
+				data: 'Photo title already exists. Please choose another title.'
+			});
+			return;
+		}
+		
+	} catch (error) {
+		res.status(500).send({
+			status: 'error',
+			message: "Error when finding the requested photo",
+		});
+		throw error;
+	}
 
 	// attach the user's id to the input data
 	validData.user_id = req.user.sub;
@@ -175,7 +190,6 @@ const destroy = async ( req, res) => {
 	try {
 		// validate that everything is fine with the photo the user is trying to delete
 		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
-		if(!photo) {return;}
 
 		// Now that we know that the photo belongs to the user, we can delete it
 		// delete photo from database and detach it from all albums

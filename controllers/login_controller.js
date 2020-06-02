@@ -17,13 +17,13 @@ module.exports = async (req, res) => {
         return;
     }
 
-    // construct jwt payload
+    // Construct jwt payload
     const payload = {
         sub: user.get('id'),
-        email: user.get('email')
+        email: user.get('email'),
     };
 
-    // sign payload and get jw-token
+    // Sign payload and get jw-token
     const token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET);
 
     res.send({

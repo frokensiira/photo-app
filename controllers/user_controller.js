@@ -3,7 +3,7 @@
  */
 
 const bcrypt = require('bcrypt');
-const models = require('../models');
+const { User } = require('../models');
 const { validationResult, matchedData } = require('express-validator');
 
 /**
@@ -13,9 +13,9 @@ const { validationResult, matchedData } = require('express-validator');
  */
 const store = async (req, res) => {
 
+	// check that all data passed the validation rules
 	const errors = validationResult(req);
 	if(!errors.isEmpty()){
-		console.log('Create user request failed validation', errors.array());
 		res.status(422).send({
 			status: 'fail',
 			data: errors.array()
@@ -25,8 +25,9 @@ const store = async (req, res) => {
 
 	const validData = matchedData(req);
 
-	try{
-		validData.password = await bcrypt.hash(validData.password, models.User.hashSaltRounds); 
+	try {
+		// salt and hash password
+		validData.password = await bcrypt.hash(validData.password, User.hashSaltRounds); 
 
 	} catch (error) {
 		res.status(500).send({
@@ -35,8 +36,9 @@ const store = async (req, res) => {
 		});
 	}
 
-	try{
-		const user = await models.User.forge(validData).save();
+	try {
+		// save the user in db
+		const user = await User.forge(validData).save();
 
 		res.send({
 			status: 'success',
