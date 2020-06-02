@@ -103,6 +103,7 @@ const show = async (req, res) => {
 	try {
 		// Validate that everything is fine with the album that the user wants to get
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
+		if(!album) {return;};
 
 		// if it belongs to the user, display it and all of its photos 
 		res.send({
@@ -198,6 +199,7 @@ const storePhotos = async (req, res) => {
 	try {
 		// validate that everything is fine with the album that the user wants to add photos to
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
+		if(!album) {return;};
 
 		// Make sure that any of the photos doesn't already exist in the album
 
@@ -306,6 +308,7 @@ const destroy = async (req, res) => {
 	try {
 		// Validate that everything is fine with the album that the user is trying to delete
 		const album = await validateAlbum(req.params.albumId, req.user.sub, res);
+		if(!album) {return;};
 
 		// Now that we know that the album belongs to the user, we can delete it
 

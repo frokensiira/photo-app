@@ -88,6 +88,8 @@ const show = async (req, res) => {
 		// Validate that everything is fine with the photo that the user wants to get
 		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
 
+		if(!photo) {return;};
+
 		// if it belongs to the user, display it and its related albums
 		res.send({
 			status: 'success',
@@ -190,6 +192,7 @@ const destroy = async ( req, res) => {
 	try {
 		// validate that everything is fine with the photo the user is trying to delete
 		const photo = await validatePhoto(req.params.photoId, req.user.sub, res);
+		if(!photo) {return;};
 
 		// Now that we know that the photo belongs to the user, we can delete it
 		// delete photo from database and detach it from all albums
