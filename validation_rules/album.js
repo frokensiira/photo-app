@@ -9,7 +9,7 @@ const createRules = [
 ];
 
 const storePhotosRules = [
-    body('photo_ids').isArray()
+    body('photo_ids').isArray().isLength({ min: 1})
 ];
 
 module.exports = {
